@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # Streamlit Web Application
+  web:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data:ro
+    environment:
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # CLI Service (for running batch recommendations)
+  cli:
+    build: .
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data:ro
+      - ./exports:/app/exports
+    command: ["python", "scripts/qa_recommender.py"]
+    profiles: ["cli"]
+    stdin_open: true
+    tty: true
+
+  # Training Data Builder Service
+  trainer:
+    build: .
+    volumes:
+      - ./logs:/app/logs:ro
+      - ./training_data:/app/training_data
+    command: ["python", "scripts/build_training_file.py", "--input", "logs/sessions.jsonl", "--output", "training_data/training.jsonl"]
+    profiles: ["training"]
+
+volumes:
+  logs:
+  exports:
+  training_data:

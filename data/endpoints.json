@@ -1,0 +1,127 @@
+{
+  "endpoints": [
+    {
+      "id": "submitSingleDoc",
+      "path": "/jobs/single-doc",
+      "method": "POST",
+      "description": "Submit a single document without using a template",
+      "docType": "single",
+      "templateUsage": false,
+      "recipientStyle": "explicit",
+      "personalized": "no",
+      "extraFeatures": [],
+      "useCases": [
+        "Simple letter or document to one recipient",
+        "One-off mailings without saved templates"
+      ],
+      "docPath": "#operation/singleDocJobParams",
+      "example": {
+        "description": "Submit a single document",
+        "code": "# Get OAuth2 token\ncurl -X POST https://api.c2m.com/auth/tokens/long \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"grant_type\": \"client_credentials\", \"client_id\": \"YOUR_CLIENT_ID\", \"client_secret\": \"YOUR_SECRET\"}'\n\n# Submit single document\ncurl -X POST https://api.c2m.com/jobs/submit/single/doc \\\n  -H \"Authorization: Bearer YOUR_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"document\": {\n      \"url\": \"https://example.com/letter.pdf\"\n    },\n    \"recipient\": {\n      \"name\": \"John Doe\",\n      \"address1\": \"123 Main St\",\n      \"city\": \"Anytown\",\n      \"state\": \"CA\",\n      \"zip\": \"12345\"\n    }\n  }'"
+      }
+    },
+    {
+      "id": "submitSingleDocTemplate",
+      "path": "/jobs/single-doc-job-template",
+      "method": "POST",
+      "description": "Submit a single document using a saved job template",
+      "docType": "single",
+      "templateUsage": true,
+      "recipientStyle": "template",
+      "personalized": "yes",
+      "extraFeatures": ["mailMerge", "savedSettings"],
+      "useCases": [
+        "Legal firm letters with standard formatting",
+        "Real estate postcards with mail merge",
+        "Monthly newsletters to subscriber list"
+      ],
+      "docPath": "#operation/submitSingleDocWithTemplateParams",
+      "example": {
+        "description": "Submit using a job template",
+        "code": "# Get OAuth2 token\ncurl -X POST https://api.c2m.com/auth/tokens/long \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"grant_type\": \"client_credentials\", \"client_id\": \"YOUR_CLIENT_ID\", \"client_secret\": \"YOUR_SECRET\"}'\n\n# Submit with template\ncurl -X POST https://api.c2m.com/jobs/submit/single/doc/template \\\n  -H \"Authorization: Bearer YOUR_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"templateId\": \"legal-letter-template-v2\",\n    \"document\": {\n      \"url\": \"https://example.com/client-letter.pdf\"\n    },\n    \"recipientOverride\": {\n      \"name\": \"Jane Smith\",\n      \"address1\": \"456 Oak Ave\"\n    }\n  }'"
+      }
+    },
+    {
+      "id": "submitMultiDoc",
+      "path": "/jobs/multi-doc",
+      "method": "POST",
+      "description": "Submit multiple documents separately",
+      "docType": "multi",
+      "templateUsage": false,
+      "recipientStyle": "explicit",
+      "personalized": "yes",
+      "extraFeatures": ["addressCapture"],
+      "useCases": [
+        "Monthly invoices - each in its own PDF",
+        "Batch processing of unique customer documents"
+      ],
+      "docPath": "#operation/submitMultiDocParams",
+      "example": {
+        "description": "Submit multiple documents with address capture",
+        "code": "# Get OAuth2 token\ncurl -X POST https://api.c2m.com/auth/tokens/long \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"grant_type\": \"client_credentials\", \"client_id\": \"YOUR_CLIENT_ID\", \"client_secret\": \"YOUR_SECRET\"}'\n\n# Submit multiple documents\ncurl -X POST https://api.c2m.com/jobs/submit/multi/doc \\\n  -H \"Authorization: Bearer YOUR_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"documents\": [\n      {\n        \"url\": \"https://example.com/invoice-001.pdf\",\n        \"addressCapture\": true\n      },\n      {\n        \"url\": \"https://example.com/invoice-002.pdf\",\n        \"addressCapture\": true\n      }\n    ],\n    \"jobOptions\": {\n      \"color\": true,\n      \"duplex\": false\n    }\n  }'"
+      }
+    },
+    {
+      "id": "submitMultiDocTemplate",
+      "path": "/jobs/multi-docs-job-template",
+      "method": "POST",
+      "description": "Submit multiple documents using a saved job template",
+      "docType": "multi",
+      "templateUsage": true,
+      "recipientStyle": "template",
+      "personalized": "yes",
+      "extraFeatures": ["savedSettings", "batchProcessing"],
+      "useCases": [
+        "Reseller batch processing with standard settings",
+        "Recurring batch mailings with consistent formatting"
+      ],
+      "docPath": "#operation/submitMultiDocWithTemplateParams",
+      "example": {
+        "description": "Batch submit with template",
+        "code": "# Get OAuth2 token\ncurl -X POST https://api.c2m.com/auth/tokens/long \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"grant_type\": \"client_credentials\", \"client_id\": \"YOUR_CLIENT_ID\", \"client_secret\": \"YOUR_SECRET\"}'\n\n# Batch submit\ncurl -X POST https://api.c2m.com/jobs/submit/multi/doc/template \\\n  -H \"Authorization: Bearer YOUR_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"templateId\": \"monthly-statement-template\",\n    \"documents\": [\n      {\"url\": \"https://example.com/statements/batch1.zip\"}\n    ],\n    \"processingOptions\": {\n      \"unzipFiles\": true,\n      \"validateAddresses\": true\n    }\n  }'"
+      }
+    },
+    {
+      "id": "submitMultiDocMerge",
+      "path": "/jobs/multi-doc-merge",
+      "method": "POST",
+      "description": "Submit multiple documents and merge them into one mailing",
+      "docType": "merge",
+      "templateUsage": "optional",
+      "recipientStyle": "explicit",
+      "personalized": "yes",
+      "extraFeatures": ["documentMerging", "boilerplateAddition"],
+      "useCases": [
+        "Medical reports with generic info pages",
+        "Custom reports with standard attachments",
+        "Combining personalized and generic content"
+      ],
+      "docPath": "#operation/mergeMultiDocParams",
+      "example": {
+        "description": "Merge multiple documents into one mailing",
+        "code": "# Get OAuth2 token\ncurl -X POST https://api.c2m.com/auth/tokens/long \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"grant_type\": \"client_credentials\", \"client_id\": \"YOUR_CLIENT_ID\", \"client_secret\": \"YOUR_SECRET\"}'\n\n# Submit and merge\ncurl -X POST https://api.c2m.com/jobs/submit/multi/doc/merge \\\n  -H \"Authorization: Bearer YOUR_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"primaryDocument\": {\n      \"url\": \"https://example.com/patient-report.pdf\"\n    },\n    \"attachments\": [\n      {\"url\": \"https://example.com/general-health-info.pdf\"},\n      {\"url\": \"https://example.com/medication-guide.pdf\"}\n    ],\n    \"recipient\": {\n      \"name\": \"Patient Name\",\n      \"address1\": \"789 Health St\",\n      \"city\": \"Medical City\",\n      \"state\": \"TX\",\n      \"zip\": \"75001\"\n    }\n  }'"
+      }
+    },
+    {
+      "id": "submitPdfSplit",
+      "path": "/jobs/single-pdf-split",
+      "method": "POST",
+      "description": "Submit a single PDF containing multiple documents to be split",
+      "docType": "pdfSplit",
+      "templateUsage": "optional",
+      "recipientStyle": "addressCapture",
+      "personalized": "yes",
+      "extraFeatures": ["addressCapture", "pdfSplitting"],
+      "useCases": [
+        "All invoices in one big PDF to be split",
+        "Batch PDF from system that needs separation",
+        "Reseller receiving combined PDFs"
+      ],
+      "docPath": "#operation/splitPdfParams",
+      "example": {
+        "description": "Split a combined PDF",
+        "code": "# Get OAuth2 token\ncurl -X POST https://api.c2m.com/auth/tokens/long \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"grant_type\": \"client_credentials\", \"client_id\": \"YOUR_CLIENT_ID\", \"client_secret\": \"YOUR_SECRET\"}'\n\n# Submit PDF for splitting\ncurl -X POST https://api.c2m.com/jobs/submit/pdf/split \\\n  -H \"Authorization: Bearer YOUR_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"document\": {\n      \"url\": \"https://example.com/combined-invoices.pdf\"\n    },\n    \"splitOptions\": {\n      \"delimiter\": \"pageBreak\",\n      \"addressCapture\": true,\n      \"addressLocation\": \"topRight\"\n    }\n  }'"
+      }
+    }
+  ]
+}

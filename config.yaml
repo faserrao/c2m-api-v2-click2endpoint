@@ -1,0 +1,75 @@
+# Click2Endpoint Configuration - C2M API v2
+
+# Documentation Server Settings
+documentation:
+  # Default documentation server to use
+  default_server: local
+  
+  # Allow users to select documentation server in the UI
+  allow_toggle: true
+  
+  # Available documentation servers
+  servers:
+    local:
+      name: "Local (localhost:8080)"
+      url: http://localhost:8080
+      description: "Local Redocly server for development"
+    
+    github_pages:
+      name: "GitHub Pages"
+      url: https://faserrao.github.io/c2m-api-repo
+      description: "Production documentation on GitHub Pages"
+    
+    # Add more servers here as needed
+    # example:
+    #   name: "AWS S3 Docs"
+    #   url: https://docs.example.com
+    #   description: "Documentation hosted on AWS"
+  
+  # Legacy support - will be removed in future versions
+  local_url: http://localhost:8080
+  remote_url: https://faserrao.github.io/c2m-api-repo
+
+# API Settings  
+api:
+  # Base URL for C2M API (Production)
+  base_url: https://api.c2m.com
+  
+  # Postman Mock Server URL
+  # This can be overridden by the c2m-api-repo's postman_mock_url.txt file if it exists
+  # Otherwise, uses this default value
+  mock_server_url: https://90fed5bb-9bac-43ca-a9c4-2c4b920892b5.mock.pstmn.io
+  
+  # Use mock server for SDK examples
+  use_mock_server: true
+  
+  # Authentication endpoint
+  auth_endpoint: /auth/tokens/long
+
+# Postman Integration
+postman:
+  # Enable Postman API integration to fetch mock servers dynamically
+  enabled: false
+  
+  # Your Postman API key (get it from https://postman.com/settings/me/api-keys)
+  # Store this in environment variable POSTMAN_API_KEY for security
+  api_key: ""
+  
+  # Default workspace type to use (personal or team)
+  default_workspace: personal
+  
+  # Collection name to search for mock servers
+  collection_name: "C2M API v2"
+
+# UI Settings
+ui:
+  # Show example code by default
+  show_examples_default: false
+  
+  # Enable session logging
+  enable_logging: true
+  
+  # Export formats
+  export_formats:
+    - json
+    - yaml
