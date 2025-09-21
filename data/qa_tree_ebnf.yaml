@@ -1,0 +1,145 @@
+decision_tree:
+  - tier: 1
+    question: "What type of document submission do you need?"
+    field: docType
+    options:
+      - value: single
+        label: "Single document"
+        description: "One document (can go to one or multiple recipients)"
+      - value: multi
+        label: "Multiple separate documents"
+        description: "Multiple individual documents, each processed separately"
+      - value: merge
+        label: "Multiple documents to merge"
+        description: "Multiple documents combined into one mailing"
+      - value: pdfSplit
+        label: "Split a PDF"
+        description: "One PDF containing multiple documents that need to be separated"
+
+  - tier: 2
+    question: "Will you use a saved job template?"
+    field: templateUsage
+    conditions:
+      docType: [single, multi, merge]
+    options:
+      - value: true
+        label: "Yes - Use saved template"
+        description: "Reuse settings from a previously saved job template"
+      - value: false
+        label: "No - Configure manually"
+        description: "Set up all job parameters from scratch"
+
+  - tier: 3
+    question: "How will recipient addresses be provided?"
+    field: recipientStyle
+    conditions:
+      docType: [single, multi, merge, pdfSplit]
+    options:
+      - value: explicit
+        label: "Provided in API call"
+        description: "Addresses sent as part of the API request"
+      - value: template
+        label: "From template/mailing list"
+        description: "Use addresses saved in template or mailing list"
+      - value: addressCapture
+        label: "Extract from document"
+        description: "Automatically capture addresses from the document content"
+
+  - tier: 4
+    question: "Is each document personalized for its recipient?"
+    field: personalized
+    conditions:
+      docType: [multi, merge]
+    options:
+      - value: yes
+        label: "Yes - Unique per recipient"
+        description: "Each document has recipient-specific content"
+      - value: no
+        label: "No - Same for all"
+        description: "Same document content for all recipients"
+
+  - tier: 5
+    question: "Do you need any special features?"
+    field: extraFeatures
+    optional: true
+    multiselect: true
+    options:
+      - value: mailMerge
+        label: "Mail merge"
+        description: "Replace placeholders with recipient data"
+      - value: certifiedMail
+        label: "Certified mail"
+        description: "Send with certified mail tracking"
+      - value: returnReceipt
+        label: "Return receipt"
+        description: "Request return receipt service"
+      - value: colorPrinting
+        label: "Color printing"
+        description: "Print in color (additional cost)"
+      - value: doubleSided
+        label: "Double-sided printing"
+        description: "Print on both sides of the paper"
+      - value: scheduling
+        label: "Scheduled sending"
+        description: "Delay sending to a specific date/time"
+      - value: pageRanges
+        label: "Page range splitting"
+        description: "Split PDF by specific page ranges per recipient"
+
+# Mapping rules to determine endpoint based on answers
+endpoint_rules:
+  # Use Case 1: Single document with template
+  - conditions:
+      docType: single
+      templateUsage: true
+    endpoint: submitSingleDocWithTemplate
+    
+  # Use Case 2: Multiple documents with template
+  - conditions:
+      docType: multi
+      templateUsage: true
+    endpoint: submitMultiDocWithTemplate
+    
+  # Use Case 3: Merge documents with template
+  - conditions:
+      docType: merge
+      templateUsage: true
+    endpoint: mergeMultiDocWithTemplate
+    
+  # Use Case 4: Single document without template (to multiple recipients)
+  - conditions:
+      docType: single
+      templateUsage: false
+    endpoint: singleDocJob
+    
+  # Use Case 5: Multiple documents without template
+  - conditions:
+      docType: multi
+      templateUsage: false
+      recipientStyle: explicit
+    endpoint: submitMultiDoc
+    
+  # Use Case 6: Merge documents without template
+  - conditions:
+      docType: merge
+      templateUsage: false
+    endpoint: mergeMultiDoc
+    
+  # Use Case 7: Split PDF with explicit recipients
+  - conditions:
+      docType: pdfSplit
+      recipientStyle: explicit
+    endpoint: splitPdf
+    
+  # Use Case 8: Split PDF with address capture
+  - conditions:
+      docType: pdfSplit
+      recipientStyle: addressCapture
+    endpoint: splitPdfWithCapture
+    
+  # Use Case 9: Multiple PDFs with address capture
+  - conditions:
+      docType: multi
+      templateUsage: false
+      recipientStyle: addressCapture
+    endpoint: multiPdfWithCapture

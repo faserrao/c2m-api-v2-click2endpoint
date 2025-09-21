@@ -1,0 +1,196 @@
+{
+  "endpoints": [
+    {
+      "id": "submitSingleDocWithTemplate",
+      "path": "/jobs/single-doc-job-template",
+      "method": "POST",
+      "description": "Submit a single document to recipients using a job template",
+      "ebnfUseCase": 1,
+      "docType": "single",
+      "templateUsage": true,
+      "recipientStyle": "template",
+      "personalized": "yes",
+      "extraFeatures": ["jobTemplate", "savedSettings"],
+      "useCases": [
+        "Legal firm letters with standard formatting",
+        "Real estate postcards with mail merge",
+        "Monthly newsletters to subscriber list"
+      ],
+      "docPath": "#operation/submitSingleDocWithTemplateParams",
+      "example": {
+        "description": "Submit using a job template",
+        "code": "curl -X POST https://api.c2m.com/jobs/single-doc-job-template"
+      }
+    },
+    {
+      "id": "submitMultiDocWithTemplate",
+      "path": "/jobs/multi-docs-job-template",
+      "method": "POST",
+      "description": "Submit multiple documents each to different recipients using a job template",
+      "ebnfUseCase": 2,
+      "docType": "multi",
+      "templateUsage": true,
+      "recipientStyle": "template",
+      "personalized": "yes",
+      "extraFeatures": ["jobTemplate", "batchProcessing"],
+      "useCases": [
+        "Reseller batch processing with standard settings",
+        "Recurring batch mailings with consistent formatting"
+      ],
+      "docPath": "#operation/submitMultiDocWithTemplateParams",
+      "example": {
+        "description": "Batch submit with template",
+        "code": "curl -X POST https://api.c2m.com/jobs/multi-docs-job-template"
+      }
+    },
+    {
+      "id": "mergeMultiDocWithTemplate",
+      "path": "/jobs/multi-doc-merge-job-template",
+      "method": "POST",
+      "description": "Merge multiple documents and send to a single recipient using a job template",
+      "ebnfUseCase": 3,
+      "docType": "merge",
+      "templateUsage": true,
+      "recipientStyle": "template",
+      "personalized": "yes",
+      "extraFeatures": ["documentMerging", "jobTemplate"],
+      "useCases": [
+        "Medical reports with template-based cover pages",
+        "Onboarding packets with standard attachments"
+      ],
+      "docPath": "#operation/mergeMultiDocWithTemplateParams",
+      "example": {
+        "description": "Merge documents with template",
+        "code": "curl -X POST https://api.c2m.com/jobs/multi-doc-merge-job-template"
+      }
+    },
+    {
+      "id": "singleDocJob",
+      "path": "/jobs/single-doc",
+      "method": "POST",
+      "description": "Submit one document to multiple recipients",
+      "ebnfUseCase": 4,
+      "docType": "single",
+      "templateUsage": false,
+      "recipientStyle": "explicit",
+      "personalized": "no",
+      "extraFeatures": [],
+      "useCases": [
+        "Bulk messaging to multiple recipients",
+        "Newsletters without saved templates",
+        "Notices to multiple addresses"
+      ],
+      "docPath": "#operation/singleDocJobParams",
+      "example": {
+        "description": "Submit single document to multiple recipients",
+        "code": "curl -X POST https://api.c2m.com/jobs/single-doc"
+      }
+    },
+    {
+      "id": "submitMultiDoc",
+      "path": "/jobs/multi-doc",
+      "method": "POST",
+      "description": "Submit multiple documents each to different recipients",
+      "ebnfUseCase": 5,
+      "docType": "multi",
+      "templateUsage": false,
+      "recipientStyle": "explicit",
+      "personalized": "yes",
+      "extraFeatures": ["addressCapture"],
+      "useCases": [
+        "Monthly invoices - each in its own PDF",
+        "Personalized mailings where each recipient gets different content"
+      ],
+      "docPath": "#operation/submitMultiDocParams",
+      "example": {
+        "description": "Submit multiple documents",
+        "code": "curl -X POST https://api.c2m.com/jobs/multi-doc"
+      }
+    },
+    {
+      "id": "mergeMultiDoc",
+      "path": "/jobs/multi-doc-merge",
+      "method": "POST",
+      "description": "Merge multiple documents into one and send to a single recipient",
+      "ebnfUseCase": 6,
+      "docType": "merge",
+      "templateUsage": false,
+      "recipientStyle": "explicit",
+      "personalized": "yes",
+      "extraFeatures": ["documentMerging"],
+      "useCases": [
+        "Medical reports with generic info pages",
+        "Custom reports with standard attachments",
+        "Onboarding kits assembled before delivery"
+      ],
+      "docPath": "#operation/mergeMultiDocParams",
+      "example": {
+        "description": "Merge multiple documents",
+        "code": "curl -X POST https://api.c2m.com/jobs/multi-doc-merge"
+      }
+    },
+    {
+      "id": "splitPdf",
+      "path": "/jobs/single-pdf-split",
+      "method": "POST",
+      "description": "Split a big PDF and send different page ranges to different recipients",
+      "ebnfUseCase": 7,
+      "docType": "pdfSplit",
+      "templateUsage": false,
+      "recipientStyle": "explicit",
+      "personalized": "yes",
+      "extraFeatures": ["pdfSplitting", "pageRanges"],
+      "useCases": [
+        "Multi-page PDF with different sections for different recipients",
+        "Split reports by page ranges"
+      ],
+      "docPath": "#operation/splitPdfParams",
+      "example": {
+        "description": "Split PDF by page ranges",
+        "code": "curl -X POST https://api.c2m.com/jobs/single-pdf-split"
+      }
+    },
+    {
+      "id": "splitPdfWithCapture",
+      "path": "/jobs/single-pdf-split-addressCapture",
+      "method": "POST",
+      "description": "Split a big PDF with serialized documents and extract addresses from the PDF",
+      "ebnfUseCase": 8,
+      "docType": "pdfSplit",
+      "templateUsage": false,
+      "recipientStyle": "addressCapture",
+      "personalized": "yes",
+      "extraFeatures": ["pdfSplitting", "addressCapture", "embeddedExtraction"],
+      "useCases": [
+        "All invoices in one big PDF to be split",
+        "Batch PDF with embedded addresses to extract"
+      ],
+      "docPath": "#operation/splitPdfWithCaptureParams",
+      "example": {
+        "description": "Split PDF with address capture",
+        "code": "curl -X POST https://api.c2m.com/jobs/single-pdf-split-addressCapture"
+      }
+    },
+    {
+      "id": "multiPdfWithCapture",
+      "path": "/jobs/multi-pdf-address-capture",
+      "method": "POST",
+      "description": "Process multiple PDFs where each contains its own embedded address",
+      "ebnfUseCase": 9,
+      "docType": "multi",
+      "templateUsage": false,
+      "recipientStyle": "addressCapture",
+      "personalized": "yes",
+      "extraFeatures": ["addressCapture", "batchProcessing"],
+      "useCases": [
+        "Pre-batched PDFs each with embedded addresses",
+        "Reseller receiving individual PDFs with addresses"
+      ],
+      "docPath": "#operation/multiPdfWithCaptureParams",
+      "example": {
+        "description": "Process multiple PDFs with address capture",
+        "code": "curl -X POST https://api.c2m.com/jobs/multi-pdf-address-capture"
+      }
+    }
+  ]
+}

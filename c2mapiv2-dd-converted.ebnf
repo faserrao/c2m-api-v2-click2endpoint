@@ -1,0 +1,270 @@
+(* In this version need to change all PascalCase to camelCase. *)
+
+(* TEST DEPLOYMENT: 2025-09-18 - Testing two-repo architecture deployment to both Postman workspaces *)
+
+(***********************************)
+(*        USE CASE DEFINITIONS        *)
+(***********************************)
+
+(* 
+  Use Case 1: I have a single document, some recipients, and a job template.
+  Endpoint: POST /jobs/single-doc-job-template
+  Question: Do you want to send one document using a job template?
+*)
+(* Q submitSingleDocWithTemplateParams: Which saved job template will you use? *)
+submitSingleDocWithTemplateParams =
+      ( ("TEMPLATE" | documentSourceIdentifier) + { recipientAddressSource }
+      | ("TEMPLATE" | { recipientAddressSource }) + documentSourceIdentifier
+      | (documentSourceIdentifier + { recipientAddressSource}) )
+    + jobTemplate                         (* Q jobTemplate: Which saved job template will you use? *)
+    + paymentDetails                      (* Q paymentDetails: How would you like to pay? *)
+    + [ tags ] ;                          (* Question (optional): Would you like to add tags? *)
+
+(* 
+  Use Case 2: I have multiple documents each to different recipient addresses & a job template.
+  Endpoint: POST /jobs/multi-docs-job-template
+  Question: Do you want to send multiple documents, each to different recipients, using a job template?
+*)
+(* Q submitMultiDocWithTemplateParams: For each document, who should receive it? *)
+submitMultiDocWithTemplateParams = 
+      { documentSourceIdentifier + recipientAddressSource }  (* Question: For each document, who should receive it? *)
+    + jobTemplate                          (* Q jobTemplate: Which saved job template will you use? *)
+    + paymentDetails                       (* Q paymentDetails: How would you like to pay? *)
+    + [ tags ] ;                           (* Question (optional): Would you like to add tags? *)
+
+(* 
+  Use Case 3: I want to merge multiple documents, send them to a single recipient, and use a job template.
+  Endpoint: POST /jobs/multi-doc-merge-job-template
+  Question: Do you want to merge multiple documents into one and send to a single recipient with a template?
+*)
+(* Q mergeMultiDocWithTemplateParams: Which documents should be merged together? *)
+mergeMultiDocWithTemplateParams = 
+      documentsToMerge                     (* Q documentsToMerge: Which documents should be merged together? *)
+    + [ ("TEMPLATE" | recipientAddressSource) ] (* Question: Will the recipient come from the template or be provided here? *)
+    + jobTemplate                          (* Q jobTemplate: Which saved job template will you use? *)
+    + paymentDetails                       (* Q paymentDetails: How would you like to pay? *)
+    + [ tags ] ;                           (* Question (optional): Would you like to add tags? *)
+
+(* 
+  Use Case 4: I have a document and multiple recipient addresses.
+  Endpoint: POST /jobs/single-doc
+  Question: Do you want to send one document to multiple recipients?
+*)
+(* Q singleDocJobParams: How will you provide the document? *)
+singleDocJobParams = 
+      documentSourceIdentifier             (* Q documentSourceIdentifier: How will you provide the document? *)
+    + { recipientAddressSource }           (* Question: Who should receive the document? *)
+    + jobOptions                           (* Q jobOptions: How should the document be printed and mailed? *)
+    + paymentDetails                       (* Q paymentDetails: How would you like to pay? *)
+    + [ tags ] ;                           (* Question (optional): Would you like to add tags? *)
+
+(* 
+  Use Case 5: I have multiple documents; each goes to a different recipient address.
+  Endpoint: POST /jobs/multi-doc
+  Question: Do you want to send multiple documents, each to different recipients?
+*)
+(* Q submitMultiDocParams: For each document, who should receive it? *)
+submitMultiDocParams = 
+      { documentSourceIdentifier + recipientAddressSource }  (* Question: For each document, who should receive it? *)
+    + jobOptions                           (* Q jobOptions: How should the documents be printed and mailed? *)
+    + paymentDetails                       (* Q paymentDetails: How would you like to pay? *)
+    + [ tags ] ;                           (* Question (optional): Would you like to add tags? *)
+
+(*
+  Use Case 6: I want to merge multiple documents into one document and send it to a single recipient.
+  Endpoint: POST /jobs/multi-doc-merge
+  Question: Do you want to merge multiple documents into one and send to one recipient?
+*)
+(* Q mergeMultiDocParams: Which documents should be merged together? *)
+mergeMultiDocParams = 
+      documentsToMerge                     (* Q documentsToMerge: Which documents should be merged together? *)
+    + recipientAddressSource               (* Q recipientAddressSource: Who should receive the merged document? *)
+    + paymentDetails                       (* Q paymentDetails: How would you like to pay? *)
+    + [ tags ] ;                           (* Question (optional): Would you like to add tags? *)
+
+(* Q documentsToMerge: Provide one or more documents to merge *)
+documentsToMerge = { documentSourceIdentifier };        (* Q documentsToMerge: Provide one or more documents to merge *)
+
+(* 
+  Use Case 7: I have a big PDF to send to different recipients.
+  Endpoint: POST /jobs/single-pdf-split
+  Question: Do you want to split a large PDF into sections for different recipients?
+*)
+(* Q splitPdfParams: How will you provide the large PDF? *)
+splitPdfParams = 
+      documentSourceIdentifier             (* Q documentSourceIdentifier: How will you provide the large PDF? *)
+    + { pageRange + { recipientAddressSource } } (* Question: For each page range, who should receive it? *)
+    + paymentDetails                       (* Q paymentDetails: How would you like to pay? *)
+    + [ tags ] ;                           (* Question (optional): Would you like to add tags? *)
+
+(* Q pageRange: What is the start and end page range? *)
+pageRange = startPage + endPage ;          (* Q pageRange: What is the start and end page range? *)
+startPage = integer ;
+endPage   = integer ;
+
+(* 
+  Use Case 8: I have a big PDF with serialized documents and the related recipient addresses are in the PDF.
+  Endpoint: POST /jobs/single-pdf-split-addressCapture
+  Question: Do you want to split a PDF and capture addresses directly from it?
+*)
+(* Q splitPdfWithCaptureParams: How will you provide the PDF? *)
+splitPdfWithCaptureParams = 
+      documentSourceIdentifier             (* Q documentSourceIdentifier: How will you provide the PDF? *)
+    + embeddedExtractionSpecs              (* Q embeddedExtractionSpecs: How should the system extract addresses from the PDF? *)
+    + paymentDetails                       (* Q paymentDetails: How would you like to pay? *)
+    + [ tags ] ;                           (* Question (optional): Would you like to add tags? *)
+
+(* Q embeddedExtractionSpecs: Provide one or more extraction rules *)
+embeddedExtractionSpecs = { extractionSpec } ; (* Q embeddedExtractionSpecs: Provide one or more extraction rules *)
+
+(* Q extractionSpec: For which pages and region should addresses be captured? *)
+extractionSpec = startPage + endPage + addressRegion ;  (* Q extractionSpec: For which pages and region should addresses be captured? *)
+
+(* Placehoder *)
+(* Q addressRegion: What is the region inside the PDF where addresses appear? *)
+addressRegion = x + y + width + height + pageOffset ; (* Q addressRegion: What is the region inside the PDF where addresses appear? *)
+
+(* Placeholders *)
+x = number ;
+y = number ;
+width = number ;
+height = number ;
+pageOffset = integer ;
+
+(* 
+  Use Case 9: I have multiple PDFs and the addresses are in each PDF.
+  Endpoint: POST /jobs/multi-pdf-address-capture
+  Question: Do you want to process multiple PDFs, each with embedded addresses?
+*)
+(* Q multiPdfWithCaptureParams: Provide the PDFs that contain address lists *)
+multiPdfWithCaptureParams = 
+      addressCapturePdfs                   (* Q addressCapturePdfs: Provide the PDFs that contain address lists *)
+    + paymentDetails                       (* Q paymentDetails: How would you like to pay? *)
+    + [ tags ] ;                           (* Question (optional): Would you like to add tags? *)
+
+(* Q addressCapturePdfs: Provide one or more address-list PDFs *)
+addressCapturePdfs = { addressListPdf } ;  (* Q addressCapturePdfs: Provide one or more address-list PDFs *)
+
+(* Q addressListPdf: How will you provide the address-list PDF? *)
+addressListPdf = 
+      documentSourceIdentifier             (* Q documentSourceIdentifier: How will you provide the address-list PDF? *)
+    + addressListRegion                    (* Q addressListRegion: Where in the PDF are the addresses located? *)
+    + [ delimiter ] 
+    + [ tags ] ;
+
+(* Q addressListRegion: How are addresses located in the PDF? *)
+addressListRegion = tbd ;                  (* Q addressListRegion: How are addresses located in the PDF? *)
+
+(* Q tbd: What delimiter separates multiple addresses inside the PDF? *)
+tbd = string ;                             (* No further questions — TBD placeholder *)
+
+(* Q delimiter: What delimiter separates multiple addresses inside the PDF? *)
+delimiter = string ;                       (* Q delimiter: What delimiter separates multiple addresses inside the PDF? *)
+
+(********************************)
+(*        CORE FIELD DEFINITIONS         *)
+(********************************)
+
+(* Q documentSourceIdentifier: Provide the document ID of a previously uploaded file *)
+documentSourceIdentifier = 
+      documentId                           (* Q documentId: Provide the document ID of a previously uploaded file *)
+    | externalUrl                          (* Q externalUrl: Provide the external URL for the file *)
+    | (uploadRequestId + documentName)     (* Question: Provide the upload request ID and document name *)
+    | (uploadRequestId + zipId + documentName) (* Question: Provide upload request ID, zip ID, and document name *)
+    | (zipId + documentName) ;             (* Question: Provide the zip ID and document name *)
+
+(* Q recipientAddressSource: Enter a new recipient address *)
+recipientAddressSource = 
+    exactlyOneNewAddress                   (* Q exactlyOneNewAddress: Enter a new recipient address *)
+    | exactlyOneListId                     (* Q exactlyOneListId: Use an existing address list *)
+    | exactlyOneId ;                       (* Question: Use a saved single address *)
+
+(* Q recipientAddress: What is the recipient’s name? *)
+recipientAddress = 
+      firstName + lastName                 (* Q lastName: What is the recipient’s name? *)
+    + address1                             (* Q address1: What is the street address? *)
+    + city + state + zip + country         (* Q country: What city, state, zip, and country? *)
+    + [ nickName ]                         (* Question (optional): Add a nickname for this recipient? *)
+    + [ address2 ] + [ address3 ]          (* Question (optional): Add additional address lines? *)
+    + [ phoneNumber ] ;                    (* Question (optional): Add a phone number? *)
+
+(* Q jobOptions: What type of document is this (business/personal)? *)
+jobOptions = 
+      documentClass                        (* Q documentClass: What type of document is this (business/personal)? *)
+    + layout                               (* Q layout: What is the page layout? *)
+    + mailclass                            (* Q mailclass: What mailing class should be used? *)
+    + paperType                            (* Q paperType: What type of paper should be used? *)
+    + printOption                          (* Q printOption: How should the document be printed? *)
+    + envelope ;                           (* Question: What type of envelope should be used? *)
+
+paymentDetails =
+      creditCardPayment
+    | invoicePayment
+    | achPayment
+    | userCreditPayment
+    | applePayPayment
+    | googlePayPayment ;
+
+(* Q creditCardPayment: Enter your credit card details *)
+creditCardPayment =
+      "CREDIT_CARD"
+    + creditCardDetails ;                  (* Question: Enter your credit card details *)
+
+(* Q invoicePayment: Enter your invoice details *)
+invoicePayment =
+      "INVOICE"
+    + invoiceDetails ;                     (* Question: Enter your invoice details *)
+
+(* Q achPayment: Enter your bank account details *)
+achPayment =
+      "ACH"
+    + achDetails ;                         (* Question: Enter your bank account details *)
+
+(* Q userCreditPayment: Use account credit balance *)
+userCreditPayment =
+      "USER_CREDIT"
+    + creditAmount ;                       (* Question: Use account credit balance *)
+
+(* Q applePayPayment: Pay with Apple Pay (ends here — details TBD) *)
+applePayPayment =
+      "APPLE_PAY"
+    + applePaymentDetails ;                (* Question: Pay with Apple Pay (ends here — details TBD) *)
+
+(* Q googlePayPayment: Pay with Google Pay (ends here — details TBD) *)
+googlePayPayment =
+      "GOOGLE_PAY"
+    + googlePaymentDetails ;               (* Question: Pay with Google Pay (ends here — details TBD) *)
+
+(* Q creditCardDetails: What type of credit card are you using? *)
+creditCardDetails =
+      cardType                             (* Q cardType: What type of credit card are you using? *)
+    + cardNumber                           (* Q cardNumber: What is the credit card number? *)
+    + expirationDate                       (* Q expirationDate: What is the expiration date? *)
+    + cvv ;                                (* Question: What is the CVV code? *)
+
+(* Q invoiceDetails: What is the invoice number? *)
+invoiceDetails =
+      invoiceNumber                        (* Q invoiceNumber: What is the invoice number? *)
+    + amountDue ;                          (* Question: What is the amount due? *)
+
+(* Q achDetails: What is the routing number? *)
+achDetails =
+      routingNumber                        (* Q routingNumber: What is the routing number? *)
+    + accountNumber                        (* Q accountNumber: What is the account number? *)
+    + checkDigit ;                         (* Question: What is the check digit? *)
+
+(* Q creditAmount: How much credit should be used? *)
+creditAmount =
+      amount                               (* Q amount: How much credit should be used? *)
+    + currency ;                           (* Question: In which currency? *)
+
+(* Q applePaymentDetails: Add one or more tags *)
+applePaymentDetails = "TBD" ;              (* No further questions — TBD placeholder *)
+
+(* Q googlePaymentDetails: Add one or more tags *)
+googlePaymentDetails = "TBD" ;             (* No further questions — TBD placeholder *)
+
+(* Q tags: Add one or more tags *)
+tags = { tags } ;                          (* Q tags: Add one or more tags *)
+(* Q tag: Provide a tag value *)
+tag = string ;                             (* Q tag: Provide a tag value *)

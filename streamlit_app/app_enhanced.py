@@ -1,6 +1,7 @@
 """
 Click2Endpoint - C2M API v2 Endpoint Finder
 Interactive web interface for finding the right C2M API endpoint
+Enhanced with EBNF-based structure while keeping the beautiful UI
 """
 
 import streamlit as st
@@ -23,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS with enhanced styling
+# Keep ALL the original beautiful CSS styling
 st.markdown("""
 <style>
     /* Main container styling */
@@ -357,6 +358,55 @@ st.markdown("""
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
+    
+    /* NEW: Job options card styling */
+    .job-option-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+    }
+    
+    .job-option-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .job-option-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.75rem;
+    }
+    
+    .job-option-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    /* Job option button styling */
+    .job-option-btn {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        border: 2px solid #e5e7eb;
+        background: white;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .job-option-btn:hover {
+        border-color: #667eea;
+        background: #f3f4ff;
+    }
+    
+    .job-option-btn.selected {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: transparent;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -370,6 +420,8 @@ class StreamlitNavigator:
         # Initialize session state
         if "answers" not in st.session_state:
             st.session_state.answers = {}
+        if "job_options" not in st.session_state:
+            st.session_state.job_options = {}
         if "qa_log" not in st.session_state:
             st.session_state.qa_log = []
         if "recommendation" not in st.session_state:
@@ -411,13 +463,29 @@ class StreamlitNavigator:
         return config
     
     def _load_endpoints(self):
-        with open(self.data_dir / "endpoints.json", "r") as f:
-            data = json.load(f)
-            return {ep["id"]: ep for ep in data["endpoints"]}
+        # Use EBNF-based endpoints if available, otherwise fallback to original
+        ebnf_endpoints_path = self.data_dir / "endpoints_ebnf.json"
+        original_endpoints_path = self.data_dir / "endpoints.json"
+        
+        if ebnf_endpoints_path.exists():
+            with open(ebnf_endpoints_path, "r") as f:
+                data = json.load(f)
+        else:
+            with open(original_endpoints_path, "r") as f:
+                data = json.load(f)
+        return {ep["id"]: ep for ep in data["endpoints"]}
     
     def _load_qa_tree(self):
-        with open(self.data_dir / "qa_tree.yaml", "r") as f:
-            return yaml.safe_load(f)
+        # Use EBNF-based qa_tree if available, otherwise fallback to original
+        ebnf_qa_path = self.data_dir / "qa_tree_ebnf.yaml"
+        original_qa_path = self.data_dir / "qa_tree.yaml"
+        
+        if ebnf_qa_path.exists():
+            with open(ebnf_qa_path, "r") as f:
+                return yaml.safe_load(f)
+        else:
+            with open(original_qa_path, "r") as f:
+                return yaml.safe_load(f)
     
     def render_header(self):
         """Render the app header"""
@@ -478,13 +546,12 @@ class StreamlitNavigator:
                         del st.session_state[key]
                 # Reinitialize required states
                 st.session_state.answers = {}
+                st.session_state.job_options = {}
                 st.session_state.qa_log = []
                 st.session_state.recommendation = None
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Removed visual flow - not needed
     
     def render_scenario_flow(self):
         """Render visual flow of selected scenario"""
@@ -492,6 +559,7 @@ class StreamlitNavigator:
             "single": "📄",
             "multi": "📚", 
             "merge": "🔗",
+            "split": "✂️",
             "pdfSplit": "✂️",
             "true": "✅",
             "false": "❌",
@@ -499,7 +567,9 @@ class StreamlitNavigator:
             "no": "❌",
             "explicit": "📝",
             "template": "📋",
-            "addressCapture": "🔍"
+            "addressCapture": "🔍",
+            "addressList": "📑",
+            "savedAddress": "💾"
         }
         
         # Build flow visualization
@@ -510,13 +580,13 @@ class StreamlitNavigator:
             icon = icons.get(answers["docType"], "📌")
             flow_parts.append(f"{icon}")
         
-        if "templateUsage" in answers:
-            icon = icons.get(str(answers["templateUsage"]).lower(), "")
+        if "useTemplate" in answers:
+            icon = icons.get(str(answers["useTemplate"]).lower(), "")
             if icon:
                 flow_parts.append(f"{icon}")
         
-        if "recipientStyle" in answers:
-            icon = icons.get(answers["recipientStyle"], "📮")
+        if "addressSource" in answers:
+            icon = icons.get(answers["addressSource"], "📮")
             flow_parts.append(f"{icon}")
         
         if flow_parts:
@@ -536,6 +606,7 @@ class StreamlitNavigator:
             "single": "📄",
             "multi": "📚", 
             "merge": "🔗",
+            "split": "✂️",
             "pdfSplit": "✂️",
             "true": "✅",
             "false": "❌",
@@ -544,7 +615,9 @@ class StreamlitNavigator:
             "explicit": "📝",
             "template": "📋",
             "addressCapture": "🔍",
-            "listId": "📑"
+            "listId": "📑",
+            "addressList": "📑",
+            "savedAddress": "💾"
         }
         
         # First, render all cards in a row
@@ -593,8 +666,107 @@ class StreamlitNavigator:
         
         return selected
     
+    def render_job_options(self):
+        """Render job options selection for non-template endpoints"""
+        st.markdown("### ⚙️ Select Print and Mail Options")
+        st.info("💡 These options control how your documents will be printed and mailed. Some options allow multiple selections.")
+        
+        # Job options structure from EBNF - updated to match actual EBNF values
+        job_options = {
+            "documentClass": {
+                "title": "Document Class",
+                "options": ["uspsFirstClass", "uspsMarketing", "uspsNonProfit"],
+                "multiselect": False,  # Single select
+                "required": True
+            },
+            "layout": {
+                "title": "Layout",
+                "options": ["address_on_separate_page", "address_on_first_page"],
+                "multiselect": False,  # Single select
+                "required": True
+            },
+            "mailclass": {
+                "title": "Mail Class", 
+                "options": ["certified", "certified_return_receipt", "registered", "priority", "standard"],
+                "multiselect": True,  # Can select multiple mail services
+                "required": True
+            },
+            "paperType": {
+                "title": "Paper Type",
+                "options": ["standard", "perfed", "letterhead"],
+                "multiselect": False,  # Single select
+                "required": True
+            },
+            "printOption": {
+                "title": "Print Option",
+                "options": ["none", "color", "grayscale"],
+                "multiselect": False,  # Single select
+                "required": True
+            },
+            "envelope": {
+                "title": "Envelope Type",
+                "options": ["flat", "windowedFlat", "letter", "legal", "postcard"],
+                "multiselect": False,  # Single select
+                "required": True
+            }
+        }
+        
+        # Render each job option with the beautiful UI
+        for field, config in job_options.items():
+            st.markdown(f"""
+            <div class="job-option-card">
+                <div class="job-option-title">{config['title']}{"" if not config.get('multiselect') else " (select multiple)"}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if config.get('multiselect', False):
+                # Multi-select using styled checkboxes
+                current_values = st.session_state.job_options.get(field, [])
+                if not isinstance(current_values, list):
+                    current_values = []
+                
+                cols = st.columns(len(config['options']))
+                for col, option in zip(cols, config['options']):
+                    with col:
+                        # Use a custom checkbox implementation with buttons
+                        is_selected = option in current_values
+                        if st.button(
+                            f"{'☑' if is_selected else '☐'} {option}",
+                            key=f"job_{field}_{option}",
+                            use_container_width=True,
+                            type="primary" if is_selected else "secondary"
+                        ):
+                            if is_selected:
+                                # Remove from selection
+                                current_values.remove(option)
+                            else:
+                                # Add to selection
+                                current_values.append(option)
+                            st.session_state.job_options[field] = current_values
+                            st.rerun()
+            else:
+                # Single select using buttons (original behavior)
+                cols = st.columns(len(config['options']))
+                current_value = st.session_state.job_options.get(field)
+                
+                for col, option in zip(cols, config['options']):
+                    with col:
+                        is_selected = current_value == option
+                        if st.button(
+                            option if not is_selected else f"✓ {option}",
+                            key=f"job_{field}_{option}",
+                            use_container_width=True,
+                            type="primary" if is_selected else "secondary"
+                        ):
+                            st.session_state.job_options[field] = option
+                            st.rerun()
+    
+    def check_if_template_endpoint(self, answers):
+        """Check if current answers lead to a template endpoint"""
+        return answers.get("useTemplate", False) or answers.get("templateUsage", False)
+    
     def render_questionnaire(self):
-        """Render the interactive questionnaire"""
+        """Render the interactive questionnaire with enhanced logic"""
         st.markdown("<h2 style='text-align: center; font-size: 2.5rem; margin-bottom: 2rem;'>🎯 Build Your Scenario</h2>", unsafe_allow_html=True)
         
         # Container for questions with scrolling
@@ -650,8 +822,14 @@ class StreamlitNavigator:
         # Track which tier we're on
         current_tier = 0
         question_count = 0
+        all_questions_answered = True
         
+        # First pass: render initial questions
         for tier_config in self.qa_tree["decision_tree"]:
+            # Skip job options question for template endpoints
+            if tier_config.get("field") == "extraFeatures" and self.check_if_template_endpoint(st.session_state.answers):
+                continue
+            
             # Check conditions
             if "conditions" in tier_config:
                 should_show = all(
@@ -671,6 +849,10 @@ class StreamlitNavigator:
             
             current_tier += 1
             question_count += 1
+            
+            # Check if this question is answered
+            if tier_config["field"] not in st.session_state.answers:
+                all_questions_answered = False
             
             # Create question section with smooth styling and unique ID
             with st.container():
@@ -696,10 +878,33 @@ class StreamlitNavigator:
                 
                 st.markdown('</div>', unsafe_allow_html=True)  # Close question-section div
         
+        # After initial questions, check if we need job options
+        if (all_questions_answered and 
+            not self.check_if_template_endpoint(st.session_state.answers) and
+            len(st.session_state.job_options) == 0):
+            
+            current_tier += 1
+            with st.container():
+                st.markdown(f'<div class="question-section" id="q{current_tier}">', unsafe_allow_html=True)
+                st.markdown(f"#### Step {current_tier}: Configure Job Options")
+                self.render_job_options()
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Check if all job options are selected
+            required_options = ["documentClass", "layout", "mailclass", "paperType", "printOption", "envelope"]
+            all_options_selected = all(
+                opt in st.session_state.job_options and 
+                (st.session_state.job_options[opt] if not isinstance(st.session_state.job_options.get(opt), list) 
+                 else len(st.session_state.job_options[opt]) > 0)
+                for opt in required_options
+            )
+            if not all_options_selected:
+                all_questions_answered = False
+        
         st.markdown('</div>', unsafe_allow_html=True)  # Close question container
         
         # Show recommendation button when questions are answered
-        if len(st.session_state.answers) >= 2:  # At least docType and templateUsage
+        if all_questions_answered and len(st.session_state.answers) >= 2:  # At least docType and templateUsage
             st.markdown("<br>", unsafe_allow_html=True)
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
@@ -716,11 +921,20 @@ class StreamlitNavigator:
     
     def find_recommendation(self):
         """Find and display the recommended endpoint"""
+        # Update the mapping to handle "useTemplate" field
+        answers = st.session_state.answers.copy()
+        if "useTemplate" in answers:
+            answers["templateUsage"] = answers["useTemplate"]
+        
+        # Also handle "split" as "pdfSplit"
+        if answers.get("docType") == "split":
+            answers["docType"] = "pdfSplit"
+        
         # Find matching endpoint
         endpoint_id = None
         for rule in self.qa_tree["endpoint_rules"]:
             matches = all(
-                st.session_state.answers.get(field) == value
+                answers.get(field) == value
                 for field, value in rule["conditions"].items()
             )
             if matches:
@@ -738,7 +952,7 @@ class StreamlitNavigator:
             st.rerun()
     
     def render_recommendation(self):
-        """Display the recommendation"""
+        """Display the recommendation with job options if selected"""
         if not st.session_state.recommendation:
             return
         
@@ -755,6 +969,18 @@ class StreamlitNavigator:
             <p style="font-size: 1.2rem; color: #1565c0; margin-top: 1rem;">{endpoint['description']}</p>
         </div>
         """, unsafe_allow_html=True)
+        
+        # Show job options if selected
+        if st.session_state.job_options:
+            st.markdown("#### 📋 Your Selected Job Options")
+            cols = st.columns(3)
+            for idx, (field, value) in enumerate(st.session_state.job_options.items()):
+                with cols[idx % 3]:
+                    st.markdown(f"""
+                    <div class="feature-card" style="background: white; border-radius: 10px; padding: 1rem; margin-bottom: 0.5rem; border-left: 3px solid #667eea;">
+                        <strong style="color: #374151;">{field}:</strong> <span style="color: #667eea;">{value}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
         
         # Add spacing before resources section
         st.markdown("<br><br>", unsafe_allow_html=True)
@@ -855,6 +1081,16 @@ class StreamlitNavigator:
                     </div>
                     """, unsafe_allow_html=True)
             
+            # Show job options if selected
+            if st.session_state.job_options:
+                st.markdown("#### ⚙️ Job Options")
+                for field, value in st.session_state.job_options.items():
+                    st.markdown(f"""
+                    <div class="feature-card" style="background: white; border-radius: 10px; padding: 0.5rem 1rem; margin-bottom: 0.5rem; border-left: 3px solid #764ba2;">
+                        <strong style="color: #374151;">{field}:</strong> <span style="color: #764ba2;">{value}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
             # Use case examples with cleaner styling
             st.markdown("#### 💡 Quick Examples")
             use_cases = {
@@ -905,6 +1141,7 @@ class StreamlitNavigator:
         log_entry = {
             "timestamp": timestamp,
             "answers": st.session_state.answers,
+            "job_options": st.session_state.job_options,
             "recommended_endpoint": endpoint["path"],
             "endpoint_id": endpoint_id
         }
@@ -931,7 +1168,7 @@ class StreamlitNavigator:
             writer.writerow({
                 "timestamp": timestamp,
                 "docType": st.session_state.answers.get("docType", ""),
-                "templateUsage": st.session_state.answers.get("templateUsage", ""),
+                "templateUsage": st.session_state.answers.get("templateUsage", st.session_state.answers.get("useTemplate", "")),
                 "endpoint": endpoint["path"],
                 "endpoint_id": endpoint_id
             })
@@ -952,6 +1189,20 @@ class StreamlitNavigator:
             auth_note = ""
             client_id = "YOUR_CLIENT_ID"
             client_secret = "YOUR_CLIENT_SECRET"
+        
+        # Include job options in the generated code if applicable
+        job_options_code = ""
+        if st.session_state.job_options and not self.check_if_template_endpoint(st.session_state.answers):
+            job_options_code = f"""
+    # Job options from your configuration
+    "jobOptions": {{
+        "documentClass": "{st.session_state.job_options.get('documentClass', 'businessLetter')}",
+        "layout": "{st.session_state.job_options.get('layout', 'portrait')}",
+        "mailclass": "{st.session_state.job_options.get('mailclass', 'firstClassMail')}",
+        "paperType": "{st.session_state.job_options.get('paperType', 'letter')}",
+        "printOption": "{st.session_state.job_options.get('printOption', 'color')}",
+        "envelope": "{st.session_state.job_options.get('envelope', 'flat')}"
+    }},"""
         
         code = f'''#!/usr/bin/env python3
 """
@@ -1122,7 +1373,10 @@ def {self._generate_function_name(endpoint['id'])}(token: str, payload: Dict[str
         "Content-Type": "application/json"
     }}
     
+    print_request("POST", url, headers, payload)
+    
     response = requests.post(url, json=payload, headers=headers)
+    print_response(response)
     response.raise_for_status()
     
     return response.json()
@@ -1136,23 +1390,21 @@ if __name__ == "__main__":
     
     # Example payload
     payload = {self._generate_example_payload(endpoint)}
+    {job_options_code}
     
     # Submit request
     print(f"\\n📤 Sending request to: {{API_BASE_URL}}{endpoint['path']}")
-    print("📦 Payload:")
-    print(json.dumps(payload, indent=2))
     
     try:
         result = {self._generate_function_name(endpoint['id'])}(token, payload)
-        print("\\n✅ Success! Response:")
-        print(json.dumps(result, indent=2))
+        print("\\n✅ Success! Job submitted")
     except requests.exceptions.RequestException as e:
         print(f"\\n❌ Error: {{e}}")
 '''
         return code
-
+    
     def generate_javascript_sdk_code(self, endpoint: Dict[str, Any]) -> str:
-        """Generate JavaScript SDK code for the endpoint"""
+        """Generate JavaScript SDK code for the endpoint with job options"""
         # Determine API URL based on configuration
         if self.config["api"].get("use_mock_server", False):
             api_url = self.config["api"].get("mock_server_url", "https://YOUR-MOCK-SERVER-ID.mock.pstmn.io")
@@ -1164,6 +1416,20 @@ if __name__ == "__main__":
             auth_note = ""
             client_id = "YOUR_CLIENT_ID"
             client_secret = "YOUR_CLIENT_SECRET"
+        
+        # Include job options in the generated code if applicable
+        job_options_code = ""
+        if st.session_state.job_options and not self.check_if_template_endpoint(st.session_state.answers):
+            job_options_code = f"""
+    // Job options from your configuration
+    jobOptions: {{
+      documentClass: "{st.session_state.job_options.get('documentClass', 'businessLetter')}",
+      layout: "{st.session_state.job_options.get('layout', 'portrait')}",
+      mailclass: "{st.session_state.job_options.get('mailclass', 'firstClassMail')}",
+      paperType: "{st.session_state.job_options.get('paperType', 'letter')}",
+      printOption: "{st.session_state.job_options.get('printOption', 'color')}",
+      envelope: "{st.session_state.job_options.get('envelope', 'flat')}"
+    }},"""
         
         code = f'''/**
  * C2M API - {endpoint['description']}
@@ -1365,6 +1631,7 @@ async function {self._generate_function_name(endpoint['id'], 'js')}(token, paylo
     
     // Example payload
     const payload = {self._generate_example_payload(endpoint, 'js')};
+    {job_options_code}
     
     // Submit request
     const result = await {self._generate_function_name(endpoint['id'], 'js')}(token, payload);
@@ -1377,7 +1644,7 @@ async function {self._generate_function_name(endpoint['id'], 'js')}(token, paylo
 }})();
 '''
         return code
-
+    
     def _generate_function_name(self, endpoint_id: str, language: str = 'python') -> str:
         """Generate a function name from endpoint ID"""
         # Convert camelCase to snake_case for Python
@@ -1391,7 +1658,7 @@ async function {self._generate_function_name(endpoint['id'], 'js')}(token, paylo
             return endpoint_id
 
     def _generate_example_payload(self, endpoint: Dict[str, Any], language: str = 'python') -> str:
-        """Generate example payload based on endpoint"""
+        """Generate example payload based on endpoint with job options if needed"""
         # Create example payload based on endpoint type
         if endpoint['id'] == 'submitSingleDoc':
             payload = {
@@ -1406,7 +1673,12 @@ async function {self._generate_function_name(endpoint['id'], 'js')}(token, paylo
                     "zip": "12345"
                 }
             }
-        elif endpoint['id'] == 'submitSingleDocTemplate':
+            # Add job options for non-template endpoints
+            if st.session_state.job_options:
+                payload["jobOptions"] = {}
+                for field, value in st.session_state.job_options.items():
+                    payload["jobOptions"][field] = value
+        elif endpoint['id'] in ['submitSingleDocTemplate', 'submitSingleDocWithTemplate']:
             payload = {
                 "templateId": "your-template-id",
                 "document": {
@@ -1428,13 +1700,14 @@ async function {self._generate_function_name(endpoint['id'], 'js')}(token, paylo
                         "url": "https://example.com/doc2.pdf",
                         "addressCapture": True
                     }
-                ],
-                "jobOptions": {
-                    "color": True,
-                    "duplex": False
-                }
+                ]
             }
-        elif endpoint['id'] == 'submitMultiDocTemplate':
+            # Add job options for non-template endpoints
+            if st.session_state.job_options:
+                payload["jobOptions"] = {}
+                for field, value in st.session_state.job_options.items():
+                    payload["jobOptions"][field] = value
+        elif endpoint['id'] in ['submitMultiDocTemplate', 'submitMultiDocWithTemplate']:
             payload = {
                 "templateId": "your-template-id",
                 "documents": [
@@ -1452,13 +1725,9 @@ async function {self._generate_function_name(endpoint['id'], 'js')}(token, paylo
                             "address1": "456 Oak Ave"
                         }
                     }
-                ],
-                "jobOptions": {
-                    "color": True,
-                    "duplex": False
-                }
+                ]
             }
-        elif endpoint['id'] == 'submitPdfSplit':
+        elif endpoint['id'] in ['submitPdfSplit', 'splitPdf', 'splitPdfWithCapture']:
             payload = {
                 "document": {
                     "url": "https://example.com/combined.pdf"
@@ -1469,6 +1738,91 @@ async function {self._generate_function_name(endpoint['id'], 'js')}(token, paylo
                     "addressLocation": "topRight"
                 }
             }
+            # Add job options for non-template endpoints
+            if st.session_state.job_options:
+                payload["jobOptions"] = {}
+                for field, value in st.session_state.job_options.items():
+                    payload["jobOptions"][field] = value
+        elif endpoint['id'] == 'singleDocJob':
+            # Use Case 4: Single doc to multiple recipients
+            payload = {
+                "document": {
+                    "url": "https://example.com/document.pdf"
+                },
+                "recipients": [
+                    {
+                        "name": "John Doe",
+                        "address1": "123 Main St",
+                        "city": "Anytown",
+                        "state": "CA",
+                        "zip": "12345"
+                    },
+                    {
+                        "name": "Jane Smith",
+                        "address1": "456 Oak Ave",
+                        "city": "Another City",
+                        "state": "NY",
+                        "zip": "10001"
+                    }
+                ]
+            }
+            # Add job options
+            if st.session_state.job_options:
+                payload["jobOptions"] = {}
+                for field, value in st.session_state.job_options.items():
+                    payload["jobOptions"][field] = value
+        elif endpoint['id'] in ['mergeMultiDoc', 'mergeMultiDocWithTemplate']:
+            # Merge multiple documents
+            payload = {
+                "documentsToMerge": [
+                    {"url": "https://example.com/page1.pdf"},
+                    {"url": "https://example.com/page2.pdf"},
+                    {"url": "https://example.com/page3.pdf"}
+                ],
+                "recipient": {
+                    "name": "John Doe",
+                    "address1": "123 Main St",
+                    "city": "Anytown",
+                    "state": "CA",
+                    "zip": "12345"
+                }
+            }
+            if 'Template' in endpoint['id']:
+                payload["templateId"] = "your-template-id"
+                payload.pop("recipient", None)  # Template provides recipient
+            elif st.session_state.job_options:
+                payload["jobOptions"] = {}
+                for field, value in st.session_state.job_options.items():
+                    payload["jobOptions"][field] = value
+        elif endpoint['id'] == 'multiPdfWithCapture':
+            # Use Case 9: Multiple PDFs with address capture
+            payload = {
+                "addressCapturePdfs": [
+                    {
+                        "url": "https://example.com/invoice1.pdf",
+                        "addressRegion": {
+                            "x": 100,
+                            "y": 100,
+                            "width": 300,
+                            "height": 150
+                        }
+                    },
+                    {
+                        "url": "https://example.com/invoice2.pdf",
+                        "addressRegion": {
+                            "x": 100,
+                            "y": 100,
+                            "width": 300,
+                            "height": 150
+                        }
+                    }
+                ]
+            }
+            # Add job options
+            if st.session_state.job_options:
+                payload["jobOptions"] = {}
+                for field, value in st.session_state.job_options.items():
+                    payload["jobOptions"][field] = value
         else:
             # Generic payload
             payload = {
@@ -1479,6 +1833,16 @@ async function {self._generate_function_name(endpoint['id'], 'js')}(token, paylo
                     "color": True
                 }
             }
+        
+        # Add job options if they exist and this is not a template endpoint
+        if st.session_state.job_options and not self.check_if_template_endpoint(st.session_state.answers):
+            payload["jobOptions"] = {}
+            for field, value in st.session_state.job_options.items():
+                # Handle multi-select fields (currently only mailclass)
+                if isinstance(value, list):
+                    payload["jobOptions"][field] = value
+                else:
+                    payload["jobOptions"][field] = value
         
         if language == 'python':
             return json.dumps(payload, indent=4)

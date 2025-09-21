@@ -1,0 +1,173 @@
+# Dynamic Q&A tree based on EBNF structure
+# This version asks endpoint-specific questions based on data requirements
+
+decision_tree:
+  # Tier 1: Document type
+  - tier: 1
+    question: "What type of document submission do you need?"
+    field: docType
+    options:
+      - value: single
+        label: "Single document"
+        description: "One document going to one or more recipients"
+      - value: multi
+        label: "Multiple separate documents"
+        description: "Multiple individual documents, each processed separately"
+      - value: merge
+        label: "Multiple documents to merge"
+        description: "Multiple documents combined into one mailing"
+      - value: pdfSplit
+        label: "Split a PDF"
+        description: "One PDF containing multiple documents that need to be separated"
+
+  # Tier 2: Template usage
+  - tier: 2
+    question: "Will you use a saved job template?"
+    field: templateUsage
+    conditions:
+      docType: [single, multi, merge]
+    options:
+      - value: true
+        label: "Yes - Use saved template"
+        description: "Reuse settings from a previously saved job template"
+      - value: false
+        label: "No - Configure manually"
+        description: "Set up all job parameters from scratch"
+
+  # Tier 3: Template contents (for template users only)
+  - tier: 3
+    question: "What does your job template contain?"
+    field: templateContents
+    conditions:
+      docType: [single]
+      templateUsage: [true]
+    options:
+      - value: documentOnly
+        label: "Document only"
+        description: "Template has the document, you'll provide recipient addresses"
+      - value: addressListOnly
+        label: "Address list only"
+        description: "Template has recipient list, you'll provide the document"
+      - value: neither
+        label: "Neither"
+        description: "You'll provide both document and recipients"
+
+  # Tier 4: Document source (when template doesn't have document)
+  - tier: 4
+    question: "How will you provide the document?"
+    field: documentSource
+    conditions:
+      templateContents: [addressListOnly, neither]
+    options:
+      - value: url
+        label: "URL"
+        description: "Document hosted at a URL"
+      - value: base64
+        label: "Base64 encoded"
+        description: "Document encoded as base64 string"
+      - value: s3
+        label: "S3 bucket"
+        description: "Document stored in AWS S3"
+
+  # Tier 5: Recipient source (when template doesn't have addresses)
+  - tier: 5
+    question: "How will you provide recipient addresses?"
+    field: recipientSource
+    conditions:
+      templateContents: [documentOnly, neither]
+    options:
+      - value: exactlyOneNewAddress
+        label: "New address"
+        description: "Provide a single address directly in the request"
+      - value: exactlyOneListId
+        label: "Address list ID"
+        description: "Reference an existing address list"
+      - value: exactlyOneId
+        label: "Saved address ID"
+        description: "Reference a previously saved address"
+
+  # Tier 6: Payment method (REQUIRED)
+  - tier: 6
+    question: "How will you pay for this job?"
+    field: paymentMethod
+    optional: false
+    options:
+      - value: creditCard
+        label: "Credit card"
+        description: "Pay with credit card"
+      - value: ach
+        label: "ACH transfer"
+        description: "Pay via bank transfer"
+      - value: invoice
+        label: "Invoice"
+        description: "Pay by invoice/PO"
+      - value: prepaid
+        label: "Prepaid account"
+        description: "Use prepaid credits"
+      - value: applePay
+        label: "Apple Pay"
+        description: "Pay with Apple Pay"
+      - value: googlePay
+        label: "Google Pay"
+        description: "Pay with Google Pay"
+
+  # Tier 7: Credit card details
+  - tier: 7
+    question: "Enter credit card information"
+    field: creditCardInfo
+    conditions:
+      paymentMethod: [creditCard]
+    type: form
+    fields:
+      - name: cardNumber
+        label: "Card number"
+        type: text
+        pattern: "^[0-9]{16}$"
+      - name: expiry
+        label: "Expiry (MM/YY)"
+        type: text
+        pattern: "^(0[1-9]|1[0-2])\/[0-9]{2}$"
+      - name: cvv
+        label: "CVV"
+        type: text
+        pattern: "^[0-9]{3,4}$"
+
+  # Tier 8: ACH details
+  - tier: 8
+    question: "Enter ACH information"
+    field: achInfo
+    conditions:
+      paymentMethod: [ach]
+    type: form
+    fields:
+      - name: routingNumber
+        label: "Routing number"
+        type: text
+        pattern: "^[0-9]{9}$"
+      - name: accountNumber
+        label: "Account number"
+        type: text
+
+  # Tier 9: Tags
+  - tier: 9
+    question: "Add tags for tracking?"
+    field: tags
+    optional: true
+    type: multitext
+    description: "Add tags to categorize and track this job"
+
+# Endpoint mapping rules
+endpoint_rules:
+  # Single document with template
+  - conditions:
+      docType: single
+      templateUsage: true
+    endpoint: submitSingleDocWithTemplate
+    
+  # Single document without template
+  - conditions:
+      docType: single
+      templateUsage: false
+    endpoint: singleDocJob
+    
+  # Add other endpoints as we implement them...
