@@ -103,4 +103,4 @@ Desktop.ini
 # Project specific - test downloads
 c2m_*.py
 c2m_*.js
-EOF < /dev/null
+EOF < /dev/nullClaudeCrash-*.txt
