@@ -10,6 +10,12 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 import streamlit.components.v1 as components
+import os
+import requests
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Page configuration
 st.set_page_config(
@@ -18,6 +24,96 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# Load configuration
+config_path = Path(__file__).parent.parent / "config.yaml"
+if config_path.exists():
+    with open(config_path, "r") as f:
+        CONFIG = yaml.safe_load(f)
+else:
+    CONFIG = {}
+
+# Postman API Integration
+def get_postman_mock_servers():
+    """Fetch mock servers from Postman API"""
+    # Check for personal or team API key
+    personal_key = os.environ.get("POSTMAN_API_KEY_PERSONAL", "")
+    team_key = os.environ.get("POSTMAN_API_KEY_TEAM", "")
+    
+    # Check for API keys from environment only
+    
+    # Use personal key by default, or team if specified
+    workspace_type = CONFIG.get("postman", {}).get("default_workspace", "personal")
+    api_key = personal_key if workspace_type == "personal" else team_key
+    
+    # Fallback to generic key or config
+    if not api_key:
+        api_key = os.environ.get("POSTMAN_API_KEY", CONFIG.get("postman", {}).get("api_key", ""))
+    
+    if not api_key or not CONFIG.get("postman", {}).get("enabled", False):
+        return None
+    
+    try:
+        headers = {"X-Api-Key": api_key}
+        response = requests.get(
+            "https://api.getpostman.com/mocks",
+            headers=headers,
+            timeout=5
+        )
+        response.raise_for_status()
+        data = response.json()
+        mocks = data.get("mocks", [])
+        
+        # Debug: Show all mocks found
+        print(f"DEBUG: Found {len(mocks)} total mocks")
+        for mock in mocks:
+            print(f"  Mock: {mock.get('name')} - ID: {mock.get('id')}")
+        
+        # Return all mocks, not just C2M filtered ones
+        all_mocks = []
+        for mock in mocks:
+            mock_url = f"https://{mock.get('id', '')}.mock.pstmn.io"
+            all_mocks.append({
+                "name": mock.get("name", "Unknown"),
+                "url": mock_url,
+                "id": mock.get("id", "")
+            })
+        
+        return all_mocks
+    except Exception as e:
+        st.warning(f"Could not fetch Postman mock servers: {str(e)}")
+        return None
+
+# Initialize mock server URL
+def initialize_mock_server():
+    """Initialize mock server URL from various sources"""
+    # Try Postman API first
+    if CONFIG.get("postman", {}).get("enabled", False):
+        mocks = get_postman_mock_servers()
+        if mocks and len(mocks) > 0:
+            # Use first C2M mock found
+            st.session_state.mock_server_url = mocks[0]["url"]
+            st.session_state.mock_server_name = mocks[0]["name"]
+            return
+    
+    # Check for mock URL file from c2m-api-repo
+    mock_url_file = Path("../c2m-api-repo/postman/postman_mock_url.txt")
+    if mock_url_file.exists():
+        with open(mock_url_file, "r") as f:
+            url = f.read().strip()
+            if url:
+                st.session_state.mock_server_url = url
+                st.session_state.mock_server_name = "From c2m-api-repo"
+                return
+    
+    # Fall back to config default
+    default_url = CONFIG.get("api", {}).get("mock_server_url", "https://cd140b74-ed23-4980-834b-a966ac3393c1.mock.pstmn.io")
+    st.session_state.mock_server_url = default_url
+    st.session_state.mock_server_name = "Default Mock Server"
+
+# Initialize on first run
+if "mock_server_url" not in st.session_state:
+    initialize_mock_server()
 
 # Custom CSS - Exact copy from original app.py
 st.markdown("""
@@ -208,24 +304,31 @@ if "address_entries" not in st.session_state:
 
 # Hardcoded endpoint mapping based on QA_TREE_ALL_PATHS.md
 def get_endpoint(answers):
-    """Determine endpoint based on answers"""
+    """Determine endpoint based on answers - from EBNF file"""
     doc_type = answers.get("docType")
     template_usage = answers.get("templateUsage")
+    recipient_style = answers.get("recipientStyle")
     
     if doc_type == "single":
         if template_usage == "true":
-            return "/jobs/single-doc-job-template"
+            return "/jobs/single-doc-job-template"  # Use Case 1
         else:
-            return "/jobs/single-doc"
+            return "/jobs/single-doc"  # Use Case 4
     elif doc_type == "multi":
         if template_usage == "true":
-            return "/jobs/multi-docs-job-template"
+            return "/jobs/multi-docs-job-template"  # Use Case 2
         else:
-            return "/jobs/multi-doc"
+            return "/jobs/multi-doc"  # Use Case 5
     elif doc_type == "merge":
-        return "/jobs/multi-doc-merge-job-template"
+        if template_usage == "true":
+            return "/jobs/multi-doc-merge-job-template"  # Use Case 3
+        else:
+            return "/jobs/multi-doc-merge"  # Use Case 6
     elif doc_type == "pdfSplit":
-        return "/jobs/single-pdf-split"
+        if recipient_style == "addressCapture":
+            return "/jobs/single-pdf-split-addressCapture"  # Use Case 8
+        else:
+            return "/jobs/single-pdf-split"  # Use Case 7
     return None
 
 def render_visual_choice(field, options, current_value=None):
@@ -739,12 +842,230 @@ def generate_api_call():
     
     return body
 
+def generate_full_python_code(endpoint: str, body: dict) -> str:
+    """Generate complete Python code with authentication flow"""
+    endpoint_name = endpoint.replace("/", "_").strip("_")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Define auth service URLs
+    AUTH_BASE_URL = "https://j0dos52r5e.execute-api.us-east-1.amazonaws.com/dev"
+    # Get API base URL from session state (set by Postman integration) or use default
+    API_BASE_URL = st.session_state.get('mock_server_url', "https://cd140b74-ed23-4980-834b-a966ac3393c1.mock.pstmn.io")
+    
+    return f'''#!/usr/bin/env python3
+"""
+C2M API - {endpoint}
+Generated: {timestamp}
+"""
+
+import requests
+import json
+from typing import Dict, Any
+
+# Configuration
+API_BASE_URL = "{API_BASE_URL}"  # Mock server or production API endpoint
+AUTH_BASE_URL = "{AUTH_BASE_URL}"  # C2M Auth service (always use this)
+# Note: Using test credentials for the mock server
+CLIENT_ID = "test-client-123"  # Replace with your client ID if using production
+CLIENT_SECRET = "super-secret-password-123"  # Replace with your client secret if using production
+
+
+def print_request(method: str, url: str, headers: Dict, body: Any = None):
+    """Pretty print HTTP request"""
+    print("\\n" + "="*60)
+    print("📤 REQUEST")
+    print("="*60)
+    print(f"{{method}} {{url}}")
+    print("\\nHEADERS:")
+    for key, value in headers.items():
+        if key.lower() == 'authorization' and len(value) > 50:
+            print(f"  {{key}}: Bearer {{value[7:27]}}...")
+        else:
+            print(f"  {{key}}: {{value}}")
+    if body:
+        print("\\nBODY:")
+        print(json.dumps(body, indent=2))
+    print("="*60)
+
+def print_response(response: requests.Response):
+    """Pretty print HTTP response"""
+    print("\\n" + "-"*60)
+    print("📥 RESPONSE")
+    print("-"*60)
+    print(f"Status: {{response.status_code}} {{response.reason}}")
+    print("\\nHEADERS:")
+    for key, value in response.headers.items():
+        print(f"  {{key}}: {{value}}")
+    print("\\nBODY:")
+    try:
+        print(json.dumps(response.json(), indent=2))
+    except:
+        print(response.text)
+    print("-"*60 + "\\n")
+
+def revoke_existing_tokens(client_id: str, client_secret: str):
+    """Revoke any existing tokens to ensure fresh authentication"""
+    revoke_url = f"{{AUTH_BASE_URL}}/auth/tokens/revoke"
+    
+    print("\\n🔄 Attempting to revoke any existing tokens...")
+    
+    headers = {{
+        "Content-Type": "application/json"
+    }}
+    
+    # Try to revoke using client credentials
+    payload = {{
+        "client_id": client_id,
+        "client_secret": client_secret
+    }}
+    
+    print_request("POST", revoke_url, headers, payload)
+    
+    try:
+        response = requests.post(revoke_url, json=payload, headers=headers)
+        print_response(response)
+        if response.status_code == 200:
+            print("✅ Existing tokens revoked successfully")
+        else:
+            print("⚠️  Token revocation returned status:", response.status_code)
+    except Exception as e:
+        print(f"⚠️  Could not revoke tokens: {{e}}")
+
+def get_access_token(client_id: str, client_secret: str) -> str:
+    """Get an access token using client credentials"""
+    # First, revoke any existing tokens
+    revoke_existing_tokens(client_id, client_secret)
+    
+    # Step 1: Get long-term token
+    print("\\n🔐 Getting long-term token...")
+    auth_url = f"{{AUTH_BASE_URL}}/auth/tokens/long"
+    
+    if "mock.pstmn.io" in API_BASE_URL:
+        print("📍 Using mock server for API calls")
+        print("🔐 Getting fresh tokens from C2M Auth service...")
+    
+    headers = {{
+        "Content-Type": "application/json"
+    }}
+    
+    payload = {{
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret
+    }}
+    
+    print_request("POST", auth_url, headers, payload)
+    
+    try:
+        response = requests.post(auth_url, json=payload, headers=headers)
+        print_response(response)
+        response.raise_for_status()
+        
+        long_token_data = response.json()
+        long_token = long_token_data.get("access_token", "")
+        
+        print("\\n✅ Long-term token obtained!")
+        print(f"🔑 Long token (30-90 days): {{long_token[:30]}}...")
+        print(f"⏱️  Expires in: {{long_token_data.get('expires_in', 'unknown')}} seconds")
+        
+        # Step 2: Exchange for short-term token
+        print("\\n🔄 Exchanging for short-term token...")
+        short_url = f"{{AUTH_BASE_URL}}/auth/tokens/short"
+        
+        short_headers = {{
+            "Authorization": f"Bearer {{long_token}}",
+            "Content-Type": "application/json"
+        }}
+        
+        short_payload = {{}}  # Can optionally narrow scopes here
+        
+        print_request("POST", short_url, short_headers, short_payload)
+        
+        response = requests.post(short_url, json=short_payload, headers=short_headers)
+        print_response(response)
+        response.raise_for_status()
+        
+        short_token_data = response.json()
+        short_token = short_token_data.get("access_token", "")
+        
+        print("\\n✅ Short-term token obtained!")
+        print(f"🔑 Short token (15 min): {{short_token[:30]}}...")
+        print(f"⏱️  Expires in: {{short_token_data.get('expires_in', 'unknown')}} seconds")
+        
+        return short_token
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 401:
+            print("\\n❌ Authentication failed. Check your client_id and client_secret.")
+        else:
+            print(f"\\n❌ Auth error: {{e}}")
+        raise
+
+
+def submit_request(token: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Submit API request to {endpoint}
+    
+    Args:
+        token: Bearer token for authentication
+        payload: Request payload
+        
+    Returns:
+        API response as dictionary
+    """
+    url = f"{{API_BASE_URL}}{endpoint}"
+    
+    headers = {{
+        "Authorization": f"Bearer {{token}}",
+        "Content-Type": "application/json"
+    }}
+    
+    print_request("POST", url, headers, payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print_response(response)
+    response.raise_for_status()
+    
+    return response.json()
+
+
+if __name__ == "__main__":
+    # Get access token
+    print("\\n🔐 Getting access token...")
+    token = get_access_token(CLIENT_ID, CLIENT_SECRET)
+    print(f"✅ Access token obtained: {{token[:20]}}..." if len(token) > 20 else f"✅ Access token: {{token}}")
+    
+    # Prepare payload
+    payload = {json.dumps(body, indent=4)}
+    
+    # Submit request
+    print(f"\\n📤 Sending request to: {{API_BASE_URL}}{endpoint}")
+    print("📦 Payload:")
+    print(json.dumps(payload, indent=2))
+    
+    try:
+        result = submit_request(token, payload)
+        print("\\n✅ Success! Response:")
+        print(json.dumps(result, indent=2))
+    except requests.exceptions.RequestException as e:
+        print(f"\\n❌ Error: {{e}}")
+'''
+
 def render_code_generation():
     """Render generated code"""
     st.header("🚀 Your Generated API Call")
     
-    body = generate_api_call()
-    endpoint = st.session_state.endpoint
+    # Generate API call body first
+    try:
+        body = generate_api_call()
+        endpoint = st.session_state.endpoint
+    except Exception as e:
+        st.error(f"Error generating API call: {str(e)}")
+        return
+    
+    # Create output directory
+    output_dir = Path("generated_code")
+    output_dir.mkdir(exist_ok=True)
+    
+    # Generate timestamp for unique filenames
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     # Create tabs for different code formats
     tab1, tab2, tab3, tab4 = st.tabs(["📋 JSON", "🐍 Python", "🟨 JavaScript", "🔧 cURL"])
@@ -752,48 +1073,116 @@ def render_code_generation():
     with tab1:
         st.subheader("Request Body")
         st.json(body)
+        
+        # Add button to save JSON
+        if st.button("💾 Save JSON to File", key="save_json"):
+            json_file = output_dir / f"c2m_api_request_{timestamp}.json"
+            try:
+                with open(json_file, "w") as f:
+                    json.dump(body, f, indent=2)
+                st.success(f"✅ Saved to: {json_file}")
+            except Exception as e:
+                st.error(f"Error saving JSON: {str(e)}")
     
     with tab2:
-        st.subheader("Python Code")
-        python_code = f'''import requests
+        st.subheader("Python Code (Preview)")
+        # Show preview of main function
+        python_preview = f'''def submit_request(token: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Submit API request to {endpoint}"""
+    url = f"{{API_BASE_URL}}{endpoint}"
+    
+    headers = {{
+        "Authorization": f"Bearer {{token}}",
+        "Content-Type": "application/json"
+    }}
+    
+    response = requests.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+    
+    return response.json()
 
-url = "https://api.c2m.com/v2{endpoint}"
-headers = {{
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
-}}
-
-payload = {json.dumps(body, indent=4)}
-
-response = requests.post(url, json=payload, headers=headers)
-print(response.json())'''
-        st.code(python_code, language="python")
+# Main execution
+if __name__ == "__main__":
+    token = get_access_token(CLIENT_ID, CLIENT_SECRET)
+    payload = {json.dumps(body, indent=4)}
+    result = submit_request(token, payload)'''
+        st.code(python_preview, language="python")
+        
+        # Generate button and file operations
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("🔨 Generate Complete Python Script", key="gen_python"):
+                try:
+                    # Generate and save full code
+                    full_python = generate_full_python_code(endpoint, body)
+                    python_file = output_dir / f"c2m_{endpoint.replace('/', '_').strip('_')}_{timestamp}.py"
+                    with open(python_file, "w") as f:
+                        f.write(full_python)
+                    st.success(f"✅ Generated: {python_file}")
+                    st.session_state.python_file_generated = True
+                    st.session_state.python_file_path = python_file
+                    st.session_state.python_file_content = full_python
+                except Exception as e:
+                    st.error(f"Error generating Python script: {str(e)}")
+        
+        with col2:
+            # Show download button if file was generated
+            if st.session_state.get('python_file_generated', False):
+                st.download_button(
+                    label="⬇️ Download Python Script",
+                    data=st.session_state.python_file_content,
+                    file_name=Path(st.session_state.python_file_path).name,
+                    mime="text/x-python",
+                    key="download_python"
+                )
     
     with tab3:
-        st.subheader("JavaScript Code")
-        js_code = f'''const axios = require('axios');
+        st.subheader("JavaScript Code (Preview)")
+        js_preview = f'''async function submitRequest(token, payload) {{
+    const url = 'https://api.c2m.com/v2{endpoint}';
+    
+    const response = await fetch(url, {{
+        method: 'POST',
+        headers: {{
+            'Authorization': `Bearer ${{token}}`,
+            'Content-Type': 'application/json'
+        }},
+        body: JSON.stringify(payload)
+    }});
+    
+    return response.json();
+}}
 
-const url = 'https://api.c2m.com/v2{endpoint}';
-const headers = {{
-    'Authorization': 'Bearer YOUR_API_KEY',
-    'Content-Type': 'application/json'
-}};
-
+// Main execution
+const token = await getAccessToken(CLIENT_ID, CLIENT_SECRET);
 const payload = {json.dumps(body, indent=2)};
-
-axios.post(url, payload, {{ headers }})
-    .then(response => {{
-        console.log(response.data);
-    }})
-    .catch(error => {{
-        console.error('Error:', error);
-    }});'''
-        st.code(js_code, language="javascript")
+const result = await submitRequest(token, payload);'''
+        st.code(js_preview, language="javascript")
+        st.info("🛠️ Full JavaScript implementation with auth flow available in next release")
     
     with tab4:
         st.subheader("cURL Command")
-        curl_cmd = f'''curl -X POST https://api.c2m.com/v2{endpoint} \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
+        AUTH_BASE_URL = "https://j0dos52r5e.execute-api.us-east-1.amazonaws.com/dev"
+        API_BASE_URL = st.session_state.get('mock_server_url', "https://cd140b74-ed23-4980-834b-a966ac3393c1.mock.pstmn.io")
+        curl_cmd = f'''# Get long-term token
+LONG_TOKEN=$(curl -X POST {AUTH_BASE_URL}/auth/tokens/long \\
+  -H "Content-Type: application/json" \\
+  -d '{{
+    "grant_type": "client_credentials",
+    "client_id": "test-client-123",
+    "client_secret": "super-secret-password-123"
+  }}' | jq -r '.access_token')
+
+# Exchange for short-term token  
+SHORT_TOKEN=$(curl -X POST {AUTH_BASE_URL}/auth/tokens/short \\
+  -H "Authorization: Bearer $LONG_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{{}}' | jq -r '.access_token')
+
+# Make API request
+curl -X POST {API_BASE_URL}{endpoint} \\
+  -H "Authorization: Bearer $SHORT_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{json.dumps(body)}'
 '''
@@ -801,6 +1190,144 @@ axios.post(url, payload, {{ headers }})
 
 def main():
     st.title("🎯 Click2Endpoint - C2M API v2")
+    
+    # Show mock server info in sidebar with expanded width
+    with st.sidebar:
+        # Force sidebar to be wider and fix font sizes
+        st.markdown("""
+        <style>
+            section[data-testid="stSidebar"] {
+                width: 400px !important;
+            }
+            .stSelectbox label {
+                font-size: 16px !important;
+                color: #FF6B35 !important;
+            }
+            .sidebar .stMarkdown {
+                font-size: 16px !important;
+            }
+            .stInfo {
+                font-size: 14px !important;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.subheader("🔧 Configuration")
+        
+        # Mock server selection
+        st.markdown("**Mock Server Selection**")
+        
+        # Workspace selection if both keys are available
+        personal_key = os.environ.get("POSTMAN_API_KEY_PERSONAL", "")
+        team_key = os.environ.get("POSTMAN_API_KEY_TEAM", "")
+        
+        if CONFIG.get("postman", {}).get("enabled", False) and personal_key and team_key:
+            workspace_type = st.radio(
+                "Postman Workspace:",
+                ["personal", "team"],
+                index=0 if CONFIG.get("postman", {}).get("default_workspace", "personal") == "personal" else 1,
+                horizontal=True,
+                key="workspace_type"
+            )
+            CONFIG["postman"]["default_workspace"] = workspace_type
+        
+        # Get available mock servers
+        mock_options = []
+        
+        # Add the correct C2M mock server as first option
+        mock_options.append({
+            "name": "🎯 C2M API v2 Mock Server (cd140b74)",
+            "url": "https://cd140b74-ed23-4980-834b-a966ac3393c1.mock.pstmn.io",
+            "source": "known"
+        })
+        
+        # Debug info
+        if CONFIG.get("postman", {}).get("enabled", False):
+            personal_key_exists = bool(os.environ.get("POSTMAN_API_KEY_PERSONAL", ""))
+            team_key_exists = bool(os.environ.get("POSTMAN_API_KEY_TEAM", ""))
+            generic_key_exists = bool(os.environ.get("POSTMAN_API_KEY", ""))
+            
+            if not (personal_key_exists or team_key_exists or generic_key_exists):
+                with st.expander("⚠️ Postman Setup Required", expanded=True):
+                    st.markdown("""
+                    **To enable Postman mock servers:**
+                    
+                    1. Edit the `.env` file in this directory
+                    2. Replace the placeholder values with your actual API keys:
+                       - `POSTMAN_API_KEY_PERSONAL=your_actual_personal_key`
+                       - `POSTMAN_API_KEY_TEAM=your_actual_team_key`
+                    3. Restart the app
+                    
+                    **Get your API key from:** [postman.com/settings/me/api-keys](https://postman.com/settings/me/api-keys)
+                    """)
+            else:
+                st.success(f"✅ API Keys found - Personal: {personal_key_exists}, Team: {team_key_exists}")
+        
+        # Add Postman mock servers if enabled
+        if CONFIG.get("postman", {}).get("enabled", False):
+            postman_mocks = get_postman_mock_servers()
+            if postman_mocks:
+                for mock in postman_mocks:
+                    mock_options.append({
+                        "name": f"🔵 {mock['name']} (Postman)",
+                        "url": mock["url"],
+                        "source": "postman"
+                    })
+        
+        # Check for local file
+        mock_url_file = Path("../c2m-api-repo/postman/postman_mock_url.txt")
+        if mock_url_file.exists():
+            with open(mock_url_file, "r") as f:
+                url = f.read().strip()
+                if url:
+                    mock_options.append({
+                        "name": "📁 From c2m-api-repo",
+                        "url": url,
+                        "source": "file"
+                    })
+        
+        # Add default option
+        default_url = CONFIG.get("api", {}).get("mock_server_url", "https://cd140b74-ed23-4980-834b-a966ac3393c1.mock.pstmn.io")
+        mock_options.append({
+            "name": "🌐 Default Mock Server",
+            "url": default_url,
+            "source": "default"
+        })
+        
+        # Create selection dropdown
+        if mock_options:
+            # Find current selection index
+            current_url = st.session_state.get('mock_server_url', default_url)
+            current_idx = 0
+            for idx, opt in enumerate(mock_options):
+                if opt["url"] == current_url:
+                    current_idx = idx
+                    break
+            
+            selected_idx = st.selectbox(
+                "Select Mock Server:",
+                range(len(mock_options)),
+                format_func=lambda x: mock_options[x]["name"],
+                index=current_idx,
+                key="mock_server_select"
+            )
+            
+            selected_mock = mock_options[selected_idx]
+            st.session_state.mock_server_url = selected_mock["url"]
+            st.session_state.mock_server_name = selected_mock["name"]
+            
+            # Show current URL in a non-clickable format
+            st.markdown("**Selected Server:**")
+            st.text(selected_mock['name'])
+            st.markdown("**Server URL:**")
+            st.text_area("", value=selected_mock['url'], height=60, disabled=True, key="mock_url_display")
+            
+            # Refresh button for Postman
+            if CONFIG.get("postman", {}).get("enabled", False):
+                if st.button("🔄 Refresh Postman Servers"):
+                    st.rerun()
+        else:
+            st.warning("No mock servers available")
     
     # Progress indicator
     if st.session_state.current_step.startswith("q"):

@@ -38,7 +38,7 @@ api:
   # Postman Mock Server URL
   # This can be overridden by the c2m-api-repo's postman_mock_url.txt file if it exists
   # Otherwise, uses this default value
-  mock_server_url: https://90fed5bb-9bac-43ca-a9c4-2c4b920892b5.mock.pstmn.io
+  mock_server_url: https://cd140b74-ed23-4980-834b-a966ac3393c1.mock.pstmn.io
   
   # Use mock server for SDK examples
   use_mock_server: true
@@ -49,7 +49,7 @@ api:
 # Postman Integration
 postman:
   # Enable Postman API integration to fetch mock servers dynamically
-  enabled: false
+  enabled: true
   
   # Your Postman API key (get it from https://postman.com/settings/me/api-keys)
   # Store this in environment variable POSTMAN_API_KEY for security
