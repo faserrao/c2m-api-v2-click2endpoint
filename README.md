@@ -18,11 +18,14 @@ The C2M API offers multiple endpoints for document submission, each optimized fo
 
 ```bash
 # Clone the repository
-git clone https://github.com/[your-username]/c2m-api-v2-click2endpoint.git
+git clone https://github.com/faserrao/c2m-api-v2-click2endpoint.git
 cd c2m-api-v2-click2endpoint
 
-# Install dependencies
-pip install -r requirements.txt
+# Run setup (creates virtual environment and installs dependencies)
+python setup.py
+
+# Or use the quickstart script
+./quickstart.sh
 ```
 
 ### CLI Usage
@@ -35,11 +38,12 @@ python scripts/qa_recommender.py
 ### Web Interface
 
 ```bash
-# Launch the Streamlit web app
-streamlit run streamlit_app/app.py
+# Navigate to the streamlit app directory and run
+cd streamlit_app
+streamlit run app_hardcoded_v1.py --server.port 8502 --server.address localhost
 ```
 
-The web interface will open at `http://localhost:8501`
+The web interface will open at `http://localhost:8502`
 
 ## 📁 Project Structure
 

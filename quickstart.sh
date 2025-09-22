@@ -8,14 +8,19 @@ echo "======================================"
 python_version=$(python3 --version 2>&1 | awk '{print $2}')
 echo "✓ Python version: $python_version"
 
-# Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv venv
-fi
+# Use setup.py to handle virtual environment
+echo "Setting up environment..."
+python3 setup.py
 
-# Activate virtual environment
-source venv/bin/activate
+# Determine venv location and activate it
+if [ -d ".venv" ]; then
+    source .venv/bin/activate
+elif [ -d "streamlit_app/.venv" ]; then
+    source streamlit_app/.venv/bin/activate
+else
+    echo "Error: Virtual environment not found!"
+    exit 1
+fi
 
 # Install dependencies
 echo "Installing dependencies..."
@@ -42,13 +47,13 @@ case $choice in
         ;;
     2)
         echo "Starting web interface..."
-        echo "Opening http://localhost:8501"
-        streamlit run streamlit_app/app.py
+        echo "Opening http://localhost:8502"
+        cd streamlit_app && streamlit run app_hardcoded_v1.py --server.port 8502 --server.address localhost
         ;;
     3)
         echo "Starting with Docker..."
         docker-compose up -d
-        echo "Web interface available at http://localhost:8501"
+        echo "Web interface available at http://localhost:8502"
         ;;
     *)
         echo "Invalid choice. Please run the script again."
