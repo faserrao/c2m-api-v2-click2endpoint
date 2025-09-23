@@ -36,52 +36,67 @@ else:
     CONFIG = {}
 
 # Postman API Integration
+def get_all_postman_collections(api_key):
+    """Get all collections from Postman"""
+    headers = {"X-Api-Key": api_key}
+    collections_url = "https://api.getpostman.com/collections"
+    
+    response = requests.get(collections_url, headers=headers, timeout=5)
+    response.raise_for_status()
+    
+    return response.json()["collections"]
+
+def get_all_postman_mock_servers(api_key):
+    """Get all mock servers from Postman"""
+    headers = {"X-Api-Key": api_key}
+    mocks_url = "https://api.getpostman.com/mocks"
+    
+    response = requests.get(mocks_url, headers=headers, timeout=5)
+    response.raise_for_status()
+    
+    return response.json()["mocks"]
+
 def get_postman_mock_servers():
-    """Fetch mock servers from Postman API"""
-    # Check for personal or team API key
-    personal_key = os.environ.get("POSTMAN_API_KEY_PERSONAL", "")
-    team_key = os.environ.get("POSTMAN_API_KEY_TEAM", "")
+    """Fetch mock servers from Postman API with collection association"""
+    # Get workspace type from session state or config
+    workspace_type = st.session_state.get("selected_workspace", 
+                                         CONFIG.get("postman", {}).get("default_workspace", "personal"))
     
-    # Check for API keys from environment only
-    
-    # Use personal key by default, or team if specified
-    workspace_type = CONFIG.get("postman", {}).get("default_workspace", "personal")
-    api_key = personal_key if workspace_type == "personal" else team_key
-    
-    # Fallback to generic key or config
-    if not api_key:
-        api_key = os.environ.get("POSTMAN_API_KEY", CONFIG.get("postman", {}).get("api_key", ""))
+    # Get appropriate API key
+    if workspace_type == "team":
+        api_key = os.environ.get("POSTMAN_API_KEY_TEAM", "")
+    else:
+        api_key = os.environ.get("POSTMAN_API_KEY_PERSONAL", "")
     
     if not api_key or not CONFIG.get("postman", {}).get("enabled", False):
         return None
     
     try:
-        headers = {"X-Api-Key": api_key}
-        response = requests.get(
-            "https://api.getpostman.com/mocks",
-            headers=headers,
-            timeout=5
-        )
-        response.raise_for_status()
-        data = response.json()
-        mocks = data.get("mocks", [])
+        # Get all collections and mocks
+        collections = get_all_postman_collections(api_key)
+        mocks = get_all_postman_mock_servers(api_key)
         
-        # Debug: Show all mocks found
-        print(f"DEBUG: Found {len(mocks)} total mocks")
-        for mock in mocks:
-            print(f"  Mock: {mock.get('name')} - ID: {mock.get('id')}")
+        # Create a map of collection UID to collection info
+        collection_map = {col["uid"]: col for col in collections}
         
-        # Return all mocks, not just C2M filtered ones
-        all_mocks = []
+        # Build list of mocks with collection info
+        mock_list = []
         for mock in mocks:
-            mock_url = f"https://{mock.get('id', '')}.mock.pstmn.io"
-            all_mocks.append({
-                "name": mock.get("name", "Unknown"),
-                "url": mock_url,
-                "id": mock.get("id", "")
+            collection_uid = mock.get("collection")
+            collection_name = "Unknown Collection"
+            
+            if collection_uid and collection_uid in collection_map:
+                collection_name = collection_map[collection_uid]["name"]
+            
+            mock_list.append({
+                "name": f"{mock.get('name', 'Unknown')} ({collection_name})",
+                "url": mock.get("mockUrl", f"https://{mock.get('id', '')}.mock.pstmn.io"),
+                "id": mock.get("id", ""),
+                "collection": collection_name,
+                "workspace": workspace_type
             })
         
-        return all_mocks
+        return mock_list
     except Exception as e:
         st.warning(f"Could not fetch Postman mock servers: {str(e)}")
         return None
@@ -230,7 +245,7 @@ st.markdown("""
     /* Buttons */
     .stButton > button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        color: aquamarine;
         border: none;
         padding: 0.75rem 2rem;
         font-size: 1rem;
@@ -1249,6 +1264,25 @@ def main():
             .stInfo {
                 font-size: 14px !important;
             }
+            /* All buttons text color - aquamarine */
+            .stButton > button {
+                color: aquamarine !important;
+            }
+            /* Keep the radio label (Select Workspace:) default color */
+            .stRadio > label {
+                color: white !important;
+            }
+            /* Force radio OPTIONS to aquamarine */
+            .stRadio > div * {
+                color: aquamarine !important;
+            }
+            /* Target the radio options container specifically */
+            .stRadio [role="radiogroup"] * {
+                color: aquamarine !important;
+            }
+            div[data-baseweb="radio"] * {
+                color: aquamarine !important;
+            }
         </style>
         """, unsafe_allow_html=True)
         
@@ -1258,18 +1292,33 @@ def main():
         st.markdown("**Mock Server Selection**")
         
         # Workspace selection if both keys are available
-        personal_key = os.environ.get("POSTMAN_API_KEY_PERSONAL", "")
-        team_key = os.environ.get("POSTMAN_API_KEY_TEAM", "")
-        
-        if CONFIG.get("postman", {}).get("enabled", False) and personal_key and team_key:
-            workspace_type = st.radio(
-                "Postman Workspace:",
-                ["personal", "team"],
-                index=0 if CONFIG.get("postman", {}).get("default_workspace", "personal") == "personal" else 1,
-                horizontal=True,
-                key="workspace_type"
-            )
-            CONFIG["postman"]["default_workspace"] = workspace_type
+        if CONFIG.get("postman", {}).get("enabled", False):
+            personal_key = os.environ.get("POSTMAN_API_KEY_PERSONAL", "")
+            team_key = os.environ.get("POSTMAN_API_KEY_TEAM", "")
+            
+            # Debug output
+            st.markdown("**Postman Configuration**")
+            st.text(f"Personal key found: {bool(personal_key)}")
+            st.text(f"Team key found: {bool(team_key)}")
+            
+            if personal_key and team_key:
+                workspace_type = st.radio(
+                    "Select Workspace:",
+                    ["personal", "team"],
+                    index=0 if st.session_state.get("selected_workspace", "personal") == "personal" else 1,
+                    horizontal=True,
+                    key="workspace_type"
+                )
+                st.session_state.selected_workspace = workspace_type
+                st.success(f"Using {workspace_type} workspace")
+            elif personal_key:
+                st.session_state.selected_workspace = "personal"
+                st.info("Using Personal Postman workspace")
+            elif team_key:
+                st.session_state.selected_workspace = "team"
+                st.info("Using Team Postman workspace")
+            else:
+                st.error("No Postman API keys found")
         
         # Get available mock servers
         mock_options = []
