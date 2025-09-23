@@ -13,6 +13,8 @@ import streamlit.components.v1 as components
 import os
 import requests
 from dotenv import load_dotenv
+import subprocess
+import sys
 
 # Load environment variables from .env file
 load_dotenv()
@@ -1136,6 +1138,44 @@ if __name__ == "__main__":
                     mime="text/x-python",
                     key="download_python"
                 )
+        
+        # Add Execute Code section if file was generated
+        if st.session_state.get('python_file_generated', False):
+            st.markdown("### 🚀 Execute Code")
+            
+            col1_exec, col2_exec = st.columns([1, 3])
+            
+            with col1_exec:
+                if st.button("▶️ Run Code", key="execute_python"):
+                    st.session_state.execute_code = True
+            
+            with col2_exec:
+                if st.session_state.get('execute_code', False):
+                    with st.spinner("Running code..."):
+                        try:
+                            # Run the generated Python script
+                            result = subprocess.run(
+                                [sys.executable, str(st.session_state.python_file_path)],
+                                capture_output=True,
+                                text=True,
+                                timeout=30
+                            )
+                            
+                            # Display results
+                            if result.returncode == 0:
+                                st.success("✅ Code executed successfully!")
+                                if result.stdout:
+                                    st.markdown("**Output:**")
+                                    st.code(result.stdout, language="json")
+                            else:
+                                st.error(f"❌ Execution failed with return code: {result.returncode}")
+                                if result.stderr:
+                                    st.markdown("**Error:**")
+                                    st.code(result.stderr)
+                        except subprocess.TimeoutExpired:
+                            st.error("❌ Execution timed out after 30 seconds")
+                        except Exception as e:
+                            st.error(f"❌ Error executing code: {str(e)}")
     
     with tab3:
         st.subheader("JavaScript Code (Preview)")
